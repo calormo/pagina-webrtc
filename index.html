@@ -783,6 +783,7 @@ async function toggleConnect() {
       await pc.setLocalDescription(answer);
 
       log('Answer local creado', 'ok');
+      log('Answer SDP:\n' + pc.localDescription.sdp, 'info');
       setStatus('connecting', 'Recolectando ICE...');
 
       await waitIceGatheringComplete(pc);
