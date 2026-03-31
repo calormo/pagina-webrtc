@@ -287,7 +287,7 @@
     font-family: 'Share Tech Mono', monospace;
     font-size: 0.7rem;
     color: var(--dim);
-    max-height: 180px;
+    max-height: 220px;
     overflow-y: auto;
     line-height: 1.6;
     white-space: pre-wrap;
@@ -366,7 +366,6 @@
 </header>
 
 <div class="main">
-
   <div class="card">
     <div class="card-label">// conexión mqtt · señalización webrtc</div>
     <div class="url-row">
@@ -419,7 +418,6 @@
     <div class="card-label">// log de eventos</div>
     <div id="log">Esperando conexión...\n</div>
   </div>
-
 </div>
 
 <footer>ESP32-S3 WebRTC Audio Receiver · libpeer compatible</footer>
@@ -431,6 +429,7 @@ let audioCtx = null;
 let analyser = null;
 let animFrame = null;
 let connected = false;
+let connecting = false;
 
 let rpcId = 1;
 const pendingRequests = new Map();
@@ -570,8 +569,17 @@ function createPeerConnection() {
 
     if (s === 'connected' || s === 'completed') {
       setStatus('connected', 'Audio activo');
+      setRpcStatus('conectado');
+      connected = true;
+      connecting = false;
+      document.getElementById('btnConnect').textContent = 'Desconectar';
+      document.getElementById('btnConnect').className = 'btn btn-danger';
+      document.getElementById('btnConnect').disabled = false;
     } else if (s === 'failed' || s === 'disconnected') {
       setStatus('error', 'ICE fallido');
+      setRpcStatus('error');
+      connecting = false;
+      document.getElementById('btnConnect').disabled = false;
     }
   };
 
@@ -642,6 +650,29 @@ function sendRpc(deviceId, method, params = null) {
   });
 }
 
+function sendRpcNoWait(deviceId, method, params = null) {
+  if (!mqttClient) {
+    throw new Error('MQTT no conectado');
+  }
+
+  const payload = {
+    jsonrpc: '2.0',
+    id: rpcId++,
+    method
+  };
+
+  if (params !== null) {
+    payload.params = params;
+  }
+
+  const msg = new Paho.Message(JSON.stringify(payload));
+  msg.destinationName = getTopics(deviceId).invoke;
+  mqttClient.send(msg);
+
+  setRpcStatus(method + ' enviado');
+  log(`RPC enviado sin espera: ${method} -> ${msg.destinationName}`, 'info');
+}
+
 function handleRpcResponse(raw) {
   let data;
   try {
@@ -701,6 +732,8 @@ function connectMqtt(deviceId, broker) {
         log('MQTT desconectado: ' + r.errorMessage, 'warn');
         setStatus('error', 'MQTT desconectado');
         setRpcStatus('desconectado');
+        connecting = false;
+        document.getElementById('btnConnect').disabled = false;
       }
     };
 
@@ -735,7 +768,7 @@ function connectMqtt(deviceId, broker) {
 }
 
 async function toggleConnect() {
-  if (connected) {
+  if (connected || connecting) {
     disconnect();
     return;
   }
@@ -753,6 +786,7 @@ async function toggleConnect() {
   const { deviceId, host } = parsed;
   const broker = brokerWsUrl(host);
 
+  connecting = true;
   document.getElementById('infoId').textContent = deviceId;
   document.getElementById('infoBroker').textContent = host;
   document.getElementById('infoIce').textContent = '—';
@@ -784,25 +818,25 @@ async function toggleConnect() {
 
       log('Answer local creado', 'ok');
       log('Answer SDP:\n' + pc.localDescription.sdp, 'info');
+
       setStatus('connecting', 'Recolectando ICE...');
 
       await waitIceGatheringComplete(pc);
 
       log('ICE gathering completo. Enviando answer...', 'info');
 
-      await sendRpc(deviceId, 'answer', pc.localDescription.sdp);
-
-      connected = true;
-      document.getElementById('btnConnect').textContent = 'Desconectar';
-      document.getElementById('btnConnect').className = 'btn btn-danger';
-      document.getElementById('btnConnect').disabled = false;
+      sendRpcNoWait(deviceId, 'answer', pc.localDescription.sdp);
 
       setStatus('connecting', 'Esperando audio del ESP32...');
+      document.getElementById('btnConnect').disabled = false;
+      document.getElementById('btnConnect').textContent = 'Desconectar';
+      document.getElementById('btnConnect').className = 'btn btn-danger';
 
     } catch (e) {
       log('Error: ' + e.message, 'warn');
       setStatus('error', 'Error de conexión');
       setRpcStatus('error');
+      connecting = false;
       document.getElementById('btnConnect').disabled = false;
 
       if (pc) {
@@ -835,6 +869,7 @@ function disconnect() {
 
   mqttClient = null;
   connected = false;
+  connecting = false;
   pendingRequests.clear();
   setRpcStatus('—');
 
