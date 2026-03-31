@@ -307,7 +307,7 @@
   </div>
   <div>
     <h1>ESP32 <span>WebRTC</span> Audio</h1>
-    <small>libpeer · broker.hivemq.com · WebRTC receiver</small>
+    <small>libpeer · broker.emqx.io · WebRTC receiver</small>
   </div>
 </header>
 
@@ -318,8 +318,8 @@
     <div class="card-label">// conexión mqtt · señalización webrtc</div>
     <div class="url-row">
       <input id="urlInput" type="text"
-        placeholder="mqtt://esp32-XXXX@broker.hivemq.com:1883"
-        value="mqtt://esp32-3cdc7563d954@broker.hivemq.com:1883" />
+        placeholder="mqtt://esp32-XXXX@broker.emqx.io:1883"
+        value="mqtt://esp32-3cdc7563d954@broker.emqx.io:1883" />
       <button class="btn btn-primary" id="btnConnect" onclick="toggleConnect()">Conectar</button>
     </div>
     <div class="status-row">
@@ -384,8 +384,8 @@ function parseUrl(raw) {
 
 // HiveMQ public broker websocket endpoint
 function brokerWsUrl(host) {
-  if (host.includes('hivemq')) return { url: `wss://${host}:8884/mqtt`, host, port: 8884, path: '/mqtt', ssl: true };
   if (host.includes('emqx'))   return { url: `wss://${host}:8084/mqtt`, host, port: 8084, path: '/mqtt', ssl: true };
+  if (host.includes('hivemq')) return { url: `wss://${host}:8884/mqtt`, host, port: 8884, path: '/mqtt', ssl: true };
   return { url: `ws://${host}:8083/mqtt`, host, port: 8083, path: '/mqtt', ssl: false };
 }
 
