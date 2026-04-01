@@ -587,25 +587,36 @@ function stopLocalStream() {
 function createPeerConnection() {
   pc = new RTCPeerConnection({
     iceServers: [
-    { urls: 'stun:stun.l.google.com:19302' },
-    {
-      urls: 'turn:openrelay.metered.ca:80?transport=udp',
-      username: 'openrelayproject',
-      credential: 'openrelayproject'
-    },
-    {
-      urls: 'turn:openrelay.metered.ca:443?transport=tcp',
-      username: 'openrelayproject',
-      credential: 'openrelayproject'
-    },
-    {
-      urls: 'turns:openrelay.metered.ca:443?transport=tcp',
-      username: 'openrelayproject',
-      credential: 'openrelayproject'
+      {
+        urls: 'turn:openrelay.metered.ca:80',
+        username: 'openrelayproject',
+        credential: 'openrelayproject'
+      },
+      {
+        urls: 'turn:openrelay.metered.ca:443',
+        username: 'openrelayproject',
+        credential: 'openrelayproject'
+      },
+      {
+        urls: 'turn:openrelay.metered.ca:443?transport=tcp',
+        username: 'openrelayproject',
+        credential: 'openrelayproject'
+      }
+    ],
+    iceTransportPolicy: 'relay'
+  });
+
+  pc.onicecandidate = (e) => {
+    if (e.candidate) {
+      log('ICE candidate: ' + e.candidate.candidate, 'info');
+    } else {
+      log('ICE candidate: fin de candidatos', 'info');
     }
-  ],
-  iceTransportPolicy: 'all'
-});
+  };
+
+  pc.onicecandidateerror = (e) => {
+    log(`ICE candidate error: url=${e.url || '-'} code=${e.errorCode || '-'} text=${e.errorText || '-'}`, 'warn');
+  };
 
   pc.ontrack = (e) => {
     log('Track remoto recibido: ' + e.track.kind, 'ok');
@@ -645,14 +656,6 @@ function createPeerConnection() {
     log('ICE gathering: ' + pc.iceGatheringState, 'info');
   };
 
-  pc.onicecandidate = (e) => {
-    if (e.candidate) {
-      log('ICE candidate: ' + e.candidate.candidate, 'info');
-    } else {
-      log('ICE candidate: fin de candidatos', 'info');
-  }
-};
-  
   return pc;
 }
 
