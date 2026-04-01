@@ -603,7 +603,7 @@ function createPeerConnection() {
         credential: 'openrelayproject'
       }
     ],
-    iceTransportPolicy: 'relay'
+    iceTransportPolicy: 'all'
   });
 
   pc.onicecandidate = (e) => {
@@ -905,9 +905,13 @@ async function toggleConnect() {
       log('Answer SDP:\n' + pc.localDescription.sdp, 'info');
 
       setStatus('connecting', 'Recolectando ICE...');
-      await waitIceGatheringComplete(pc);
 
-      log('ICE gathering completo. Enviando answer...', 'info');
+      await Promise.race([
+        waitIceGatheringComplete(pc),
+        new Promise(resolve => setTimeout(resolve, 4000))
+      ]);
+
+      log('Enviando answer con los candidatos disponibles...', 'info');
 
       sendRpcNoWait(deviceId, 'answer', pc.localDescription.sdp);
 
