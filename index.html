@@ -906,14 +906,25 @@ async function toggleConnect() {
 
       setStatus('connecting', 'Recolectando ICE...');
 
-      await Promise.race([
-        waitIceGatheringComplete(pc),
-        new Promise(resolve => setTimeout(resolve, 4000))
-      ]);
+      let hasRelayCandidate = false;
 
-      log('Enviando answer con los candidatos disponibles...', 'info');
+      pc.onicecandidate = (e) => {
+      if (e.candidate) {
+          const cand = e.candidate.candidate || '';
+          log('ICE candidate: ' + cand, 'info');
 
-      sendRpcNoWait(deviceId, 'answer', pc.localDescription.sdp);
+          if (cand.includes(' typ relay ')) {
+              hasRelayCandidate = true;
+              log('Relay candidate detectada ✓', 'ok');
+          }
+        } else {
+        log('ICE candidate: fin de candidatos', 'info');
+        }
+      };
+
+      pc.onicecandidateerror = (e) => {
+      log(`ICE candidate error: url=${e.url || '-'} code=${e.errorCode || '-'} text=${e.errorText || '-'}`, 'warn');
+      };
 
       document.getElementById('btnConnect').disabled = false;
       document.getElementById('btnConnect').textContent = 'Desconectar';
