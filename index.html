@@ -645,6 +645,14 @@ function createPeerConnection() {
     log('ICE gathering: ' + pc.iceGatheringState, 'info');
   };
 
+  pc.onicecandidate = (e) => {
+    if (e.candidate) {
+      log('ICE candidate: ' + e.candidate.candidate, 'info');
+    } else {
+      log('ICE candidate: fin de candidatos', 'info');
+  }
+};
+  
   return pc;
 }
 
