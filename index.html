@@ -430,26 +430,20 @@
 let mqttClient = null;
 let pc = null;
 let localStream = null;
-let remoteAudioEl = null;
 let audioCtx = null;
 let analyser = null;
 let animFrame = null;
 let connected = false;
 let connecting = false;
 let rpcId = 1;
+let hasRelayCandidate = false;
 const pendingRequests = new Map();
 
 function parseUrl(raw) {
   const url = raw.trim();
   const m = url.match(/^mqtt:\/\/([^@]+)@([^:\/]+):(\d+)\/?$/);
-  if (!m) {
-    throw new Error('URL inválida. Formato: mqtt://deviceId@host:port');
-  }
-  return {
-    deviceId: m[1],
-    host: m[2],
-    port: parseInt(m[3], 10)
-  };
+  if (!m) throw new Error('URL inválida. Formato: mqtt://deviceId@host:port');
+  return { deviceId: m[1], host: m[2], port: parseInt(m[3], 10) };
 }
 
 function brokerWsUrl(host) {
@@ -490,8 +484,7 @@ function setRpcStatus(text) {
 }
 
 function setVolume(v) {
-  const audio = document.getElementById('audioEl');
-  audio.volume = Number(v);
+  document.getElementById('audioEl').volume = Number(v);
 }
 
 function startVisualizer(stream) {
@@ -557,7 +550,7 @@ async function ensureMicrophone() {
 
   log('Solicitando permiso de micrófono...', 'info');
 
-  const constraints = {
+  localStream = await navigator.mediaDevices.getUserMedia({
     audio: {
       echoCancellation: true,
       noiseSuppression: true,
@@ -565,13 +558,9 @@ async function ensureMicrophone() {
       channelCount: 1
     },
     video: false
-  };
+  });
 
-  localStream = await navigator.mediaDevices.getUserMedia(constraints);
-
-  const mon = document.getElementById('localAudioMonitor');
-  mon.srcObject = localStream;
-
+  document.getElementById('localAudioMonitor').srcObject = localStream;
   log('Micrófono activado ✓', 'ok');
   return localStream;
 }
@@ -587,6 +576,7 @@ function stopLocalStream() {
 function createPeerConnection() {
   pc = new RTCPeerConnection({
     iceServers: [
+      { urls: 'stun:stun.l.google.com:19302' },
       {
         urls: 'turn:openrelay.metered.ca:80',
         username: 'openrelayproject',
@@ -608,7 +598,12 @@ function createPeerConnection() {
 
   pc.onicecandidate = (e) => {
     if (e.candidate) {
-      log('ICE candidate: ' + e.candidate.candidate, 'info');
+      const cand = e.candidate.candidate || '';
+      log('ICE candidate: ' + cand, 'info');
+      if (cand.includes(' typ relay ')) {
+        hasRelayCandidate = true;
+        log('Relay candidate detectada ✓', 'ok');
+      }
     } else {
       log('ICE candidate: fin de candidatos', 'info');
     }
@@ -678,23 +673,18 @@ function waitIceGatheringComplete(peer) {
       resolve();
       return;
     }
-
     function onStateChange() {
       if (peer.iceGatheringState === 'complete') {
         peer.removeEventListener('icegatheringstatechange', onStateChange);
         resolve();
       }
     }
-
     peer.addEventListener('icegatheringstatechange', onStateChange);
   });
 }
 
 function loadPaho(cb) {
-  if (window.Paho) {
-    cb();
-    return;
-  }
+  if (window.Paho) return cb();
   const s = document.createElement('script');
   s.src = 'https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.1.0/paho-mqtt.min.js';
   s.onload = cb;
@@ -723,9 +713,7 @@ function connectMqtt(deviceId, broker) {
 
     client.onMessageArrived = (msg) => {
       log(`MQTT RX [${msg.destinationName}]`, 'info');
-      if (msg.destinationName === topics.result) {
-        handleRpcResponse(msg.payloadString);
-      }
+      if (msg.destinationName === topics.result) handleRpcResponse(msg.payloadString);
     };
 
     client.connect({
@@ -738,14 +726,10 @@ function connectMqtt(deviceId, broker) {
             mqttClient = client;
             resolve(client);
           },
-          onFailure: () => {
-            reject(new Error('No se pudo suscribir a ' + topics.result));
-          }
+          onFailure: () => reject(new Error('No se pudo suscribir a ' + topics.result))
         });
       },
-      onFailure: (err) => {
-        reject(new Error(err.errorMessage || 'Error MQTT'));
-      },
+      onFailure: (err) => reject(new Error(err.errorMessage || 'Error MQTT')),
       timeout: 10
     });
   });
@@ -753,23 +737,13 @@ function connectMqtt(deviceId, broker) {
 
 function sendRpc(deviceId, method, params = null) {
   return new Promise((resolve, reject) => {
-    if (!mqttClient) {
-      reject(new Error('MQTT no conectado'));
-      return;
-    }
+    if (!mqttClient) return reject(new Error('MQTT no conectado'));
 
     const id = rpcId++;
     pendingRequests.set(id, { resolve, reject, method });
 
-    const payload = {
-      jsonrpc: '2.0',
-      id,
-      method
-    };
-
-    if (params !== null) {
-      payload.params = params;
-    }
+    const payload = { jsonrpc: '2.0', id, method };
+    if (params !== null) payload.params = params;
 
     const msg = new Paho.Message(JSON.stringify(payload));
     msg.destinationName = getTopics(deviceId).invoke;
@@ -788,19 +762,10 @@ function sendRpc(deviceId, method, params = null) {
 }
 
 function sendRpcNoWait(deviceId, method, params = null) {
-  if (!mqttClient) {
-    throw new Error('MQTT no conectado');
-  }
+  if (!mqttClient) throw new Error('MQTT no conectado');
 
-  const payload = {
-    jsonrpc: '2.0',
-    id: rpcId++,
-    method
-  };
-
-  if (params !== null) {
-    payload.params = params;
-  }
+  const payload = { jsonrpc: '2.0', id: rpcId++, method };
+  if (params !== null) payload.params = params;
 
   const msg = new Paho.Message(JSON.stringify(payload));
   msg.destinationName = getTopics(deviceId).invoke;
@@ -859,6 +824,8 @@ async function toggleConnect() {
   const broker = brokerWsUrl(host);
 
   connecting = true;
+  hasRelayCandidate = false;
+
   document.getElementById('infoId').textContent = deviceId;
   document.getElementById('infoBroker').textContent = host;
   document.getElementById('infoIce').textContent = '—';
@@ -881,7 +848,6 @@ async function toggleConnect() {
   loadPaho(async () => {
     try {
       createPeerConnection();
-
       await connectMqtt(deviceId, broker);
 
       setStatus('connecting', 'Solicitando offer al ESP32...');
@@ -906,31 +872,23 @@ async function toggleConnect() {
 
       setStatus('connecting', 'Recolectando ICE...');
 
-      let hasRelayCandidate = false;
+      const start = Date.now();
+      while (!hasRelayCandidate &&
+             pc.iceGatheringState !== 'complete' &&
+             (Date.now() - start) < 15000) {
+        await new Promise(resolve => setTimeout(resolve, 250));
+      }
 
-      pc.onicecandidate = (e) => {
-      if (e.candidate) {
-          const cand = e.candidate.candidate || '';
-          log('ICE candidate: ' + cand, 'info');
+      log('Enviando answer con los candidatos disponibles...', 'info');
+      log('Tiene relay: ' + (hasRelayCandidate ? 'sí' : 'no'),
+          hasRelayCandidate ? 'ok' : 'warn');
 
-          if (cand.includes(' typ relay ')) {
-              hasRelayCandidate = true;
-              log('Relay candidate detectada ✓', 'ok');
-          }
-        } else {
-        log('ICE candidate: fin de candidatos', 'info');
-        }
-      };
-
-      pc.onicecandidateerror = (e) => {
-      log(`ICE candidate error: url=${e.url || '-'} code=${e.errorCode || '-'} text=${e.errorText || '-'}`, 'warn');
-      };
+      sendRpcNoWait(deviceId, 'answer', pc.localDescription.sdp);
 
       document.getElementById('btnConnect').disabled = false;
       document.getElementById('btnConnect').textContent = 'Desconectar';
       document.getElementById('btnConnect').className = 'btn btn-danger';
       setStatus('connecting', 'Esperando tráfico RTP...');
-
     } catch (e) {
       log('Error: ' + e.message, 'warn');
       setStatus('error', 'Error de conexión');
@@ -959,7 +917,6 @@ function disconnect() {
   if (mqttClient) {
     try { mqttClient.disconnect(); } catch {}
   }
-
   if (pc) {
     try { pc.close(); } catch {}
     pc = null;
@@ -973,6 +930,7 @@ function disconnect() {
   mqttClient = null;
   connected = false;
   connecting = false;
+  hasRelayCandidate = false;
   pendingRequests.clear();
 
   setRpcStatus('—');
