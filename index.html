@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>ESP32 WebRTC Audio</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Exo+2:wght@300;400;600&display=swap');
@@ -277,7 +277,10 @@
     cursor: pointer;
   }
 
-  #audioEl { display: none; }
+  #audioEl,
+  #localAudioMonitor {
+    display: none;
+  }
 
   #log {
     background: #060b12;
@@ -327,10 +330,6 @@
     word-break: break-all;
   }
 
-  #log::-webkit-scrollbar { width: 4px; }
-  #log::-webkit-scrollbar-track { background: transparent; }
-  #log::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
-
   footer {
     margin-top: 32px;
     font-family: 'Share Tech Mono', monospace;
@@ -339,6 +338,10 @@
     text-align: center;
     opacity: 0.6;
   }
+
+  #log::-webkit-scrollbar { width: 4px; }
+  #log::-webkit-scrollbar-track { background: transparent; }
+  #log::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
 
   @media (max-width: 640px) {
     .url-row {
@@ -361,7 +364,7 @@
   </div>
   <div>
     <h1>ESP32 <span>WebRTC</span> Audio</h1>
-    <small>libpeer · broker.emqx.io · WebRTC receiver</small>
+    <small>libpeer · broker.emqx.io · audio del iPhone al ESP32</small>
   </div>
 </header>
 
@@ -384,7 +387,7 @@
   </div>
 
   <div class="card audio-panel">
-    <div class="card-label" style="align-self:flex-start">// audio recibido del esp32</div>
+    <div class="card-label" style="align-self:flex-start">// monitoreo de audio</div>
     <div class="visualizer-wrap">
       <canvas id="visualizer"></canvas>
     </div>
@@ -402,6 +405,7 @@
       <span class="vol-label">🔊</span>
     </div>
     <audio id="audioEl" autoplay playsinline></audio>
+    <audio id="localAudioMonitor" muted playsinline autoplay></audio>
   </div>
 
   <div class="card">
@@ -420,17 +424,18 @@
   </div>
 </div>
 
-<footer>ESP32-S3 WebRTC Audio Receiver · libpeer compatible</footer>
+<footer>ESP32-S3 WebRTC Audio Sender desde iPhone · RPC invoke/result</footer>
 
 <script>
 let mqttClient = null;
 let pc = null;
+let localStream = null;
+let remoteAudioEl = null;
 let audioCtx = null;
 let analyser = null;
 let animFrame = null;
 let connected = false;
 let connecting = false;
-
 let rpcId = 1;
 const pendingRequests = new Map();
 
@@ -484,9 +489,14 @@ function setRpcStatus(text) {
   document.getElementById('infoRpc').textContent = text;
 }
 
+function setVolume(v) {
+  const audio = document.getElementById('audioEl');
+  audio.volume = Number(v);
+}
+
 function startVisualizer(stream) {
   if (audioCtx) {
-    audioCtx.close();
+    try { audioCtx.close(); } catch {}
   }
 
   audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -528,10 +538,13 @@ function startVisualizer(stream) {
 
 function stopVisualizer() {
   if (animFrame) cancelAnimationFrame(animFrame);
+  animFrame = null;
+
   if (audioCtx) {
-    audioCtx.close();
+    try { audioCtx.close(); } catch {}
     audioCtx = null;
   }
+
   const canvas = document.getElementById('visualizer');
   const ctx = canvas.getContext('2d');
   canvas.width = canvas.offsetWidth;
@@ -539,9 +552,36 @@ function stopVisualizer() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 }
 
-function setVolume(v) {
-  const audio = document.getElementById('audioEl');
-  audio.volume = Number(v);
+async function ensureMicrophone() {
+  if (localStream) return localStream;
+
+  log('Solicitando permiso de micrófono...', 'info');
+
+  const constraints = {
+    audio: {
+      echoCancellation: true,
+      noiseSuppression: true,
+      autoGainControl: true,
+      channelCount: 1
+    },
+    video: false
+  };
+
+  localStream = await navigator.mediaDevices.getUserMedia(constraints);
+
+  const mon = document.getElementById('localAudioMonitor');
+  mon.srcObject = localStream;
+
+  log('Micrófono activado ✓', 'ok');
+  return localStream;
+}
+
+function stopLocalStream() {
+  if (localStream) {
+    localStream.getTracks().forEach(t => t.stop());
+    localStream = null;
+  }
+  document.getElementById('localAudioMonitor').srcObject = null;
 }
 
 function createPeerConnection() {
@@ -553,11 +593,10 @@ function createPeerConnection() {
   });
 
   pc.ontrack = (e) => {
-    log('Track recibido: ' + e.track.kind, 'ok');
-    const audio = document.getElementById('audioEl');
+    log('Track remoto recibido: ' + e.track.kind, 'ok');
     if (e.streams && e.streams[0]) {
+      const audio = document.getElementById('audioEl');
       audio.srcObject = e.streams[0];
-      startVisualizer(e.streams[0]);
       audio.play().catch(() => {});
     }
   };
@@ -568,7 +607,7 @@ function createPeerConnection() {
     log('ICE: ' + s, s === 'connected' || s === 'completed' ? 'ok' : s === 'failed' ? 'warn' : 'info');
 
     if (s === 'connected' || s === 'completed') {
-      setStatus('connected', 'Audio activo');
+      setStatus('connected', 'Audio enviándose');
       setRpcStatus('conectado');
       connected = true;
       connecting = false;
@@ -583,17 +622,28 @@ function createPeerConnection() {
     }
   };
 
-  pc.onicegatheringstatechange = () => {
-    log('ICE gathering: ' + pc.iceGatheringState, 'info');
-  };
-
   pc.onconnectionstatechange = () => {
     log('PeerConnection: ' + pc.connectionState, 'info');
   };
 
-  pc.addTransceiver('audio', { direction: 'recvonly' });
+  pc.onicegatheringstatechange = () => {
+    log('ICE gathering: ' + pc.iceGatheringState, 'info');
+  };
 
   return pc;
+}
+
+function attachLocalTracks(stream) {
+  const senders = pc.getSenders();
+  const alreadyHasAudio = senders.some(s => s.track && s.track.kind === 'audio');
+  if (alreadyHasAudio) return;
+
+  stream.getAudioTracks().forEach(track => {
+    pc.addTrack(track, stream);
+    log('Track local agregado: ' + track.kind, 'ok');
+  });
+
+  startVisualizer(stream);
 }
 
 function waitIceGatheringComplete(peer) {
@@ -612,98 +662,6 @@ function waitIceGatheringComplete(peer) {
 
     peer.addEventListener('icegatheringstatechange', onStateChange);
   });
-}
-
-function sendRpc(deviceId, method, params = null) {
-  return new Promise((resolve, reject) => {
-    if (!mqttClient) {
-      reject(new Error('MQTT no conectado'));
-      return;
-    }
-
-    const id = rpcId++;
-    pendingRequests.set(id, { resolve, reject, method });
-
-    const payload = {
-      jsonrpc: '2.0',
-      id,
-      method
-    };
-
-    if (params !== null) {
-      payload.params = params;
-    }
-
-    const msg = new Paho.Message(JSON.stringify(payload));
-    msg.destinationName = getTopics(deviceId).invoke;
-    mqttClient.send(msg);
-
-    setRpcStatus(method);
-    log(`RPC enviado: ${method} -> ${msg.destinationName}`, 'info');
-
-    setTimeout(() => {
-      if (pendingRequests.has(id)) {
-        pendingRequests.delete(id);
-        reject(new Error(`Timeout esperando respuesta RPC: ${method}`));
-      }
-    }, 12000);
-  });
-}
-
-function sendRpcNoWait(deviceId, method, params = null) {
-  if (!mqttClient) {
-    throw new Error('MQTT no conectado');
-  }
-
-  const payload = {
-    jsonrpc: '2.0',
-    id: rpcId++,
-    method
-  };
-
-  if (params !== null) {
-    payload.params = params;
-  }
-
-  const msg = new Paho.Message(JSON.stringify(payload));
-  msg.destinationName = getTopics(deviceId).invoke;
-  mqttClient.send(msg);
-
-  setRpcStatus(method + ' enviado');
-  log(`RPC enviado sin espera: ${method} -> ${msg.destinationName}`, 'info');
-}
-
-function handleRpcResponse(raw) {
-  let data;
-  try {
-    data = JSON.parse(raw);
-  } catch {
-    log('Mensaje no JSON recibido en result', 'warn');
-    return;
-  }
-
-  log('RPC recibido: ' + raw, 'info');
-
-  if (typeof data.id !== 'number') {
-    return;
-  }
-
-  const pending = pendingRequests.get(data.id);
-  if (!pending) {
-    return;
-  }
-
-  pendingRequests.delete(data.id);
-
-  if (data.error) {
-    const msg = data.error.message || 'Error RPC';
-    setRpcStatus('error');
-    pending.reject(new Error(msg));
-    return;
-  }
-
-  setRpcStatus('ok');
-  pending.resolve(data.result);
 }
 
 function loadPaho(cb) {
@@ -767,6 +725,94 @@ function connectMqtt(deviceId, broker) {
   });
 }
 
+function sendRpc(deviceId, method, params = null) {
+  return new Promise((resolve, reject) => {
+    if (!mqttClient) {
+      reject(new Error('MQTT no conectado'));
+      return;
+    }
+
+    const id = rpcId++;
+    pendingRequests.set(id, { resolve, reject, method });
+
+    const payload = {
+      jsonrpc: '2.0',
+      id,
+      method
+    };
+
+    if (params !== null) {
+      payload.params = params;
+    }
+
+    const msg = new Paho.Message(JSON.stringify(payload));
+    msg.destinationName = getTopics(deviceId).invoke;
+    mqttClient.send(msg);
+
+    setRpcStatus(method);
+    log(`RPC enviado: ${method} -> ${msg.destinationName}`, 'info');
+
+    setTimeout(() => {
+      if (pendingRequests.has(id)) {
+        pendingRequests.delete(id);
+        reject(new Error(`Timeout esperando respuesta RPC: ${method}`));
+      }
+    }, 15000);
+  });
+}
+
+function sendRpcNoWait(deviceId, method, params = null) {
+  if (!mqttClient) {
+    throw new Error('MQTT no conectado');
+  }
+
+  const payload = {
+    jsonrpc: '2.0',
+    id: rpcId++,
+    method
+  };
+
+  if (params !== null) {
+    payload.params = params;
+  }
+
+  const msg = new Paho.Message(JSON.stringify(payload));
+  msg.destinationName = getTopics(deviceId).invoke;
+  mqttClient.send(msg);
+
+  setRpcStatus(method + ' enviado');
+  log(`RPC enviado sin espera: ${method} -> ${msg.destinationName}`, 'info');
+}
+
+function handleRpcResponse(raw) {
+  let data;
+  try {
+    data = JSON.parse(raw);
+  } catch {
+    log('Mensaje no JSON recibido en result', 'warn');
+    return;
+  }
+
+  log('RPC recibido: ' + raw, 'info');
+
+  if (typeof data.id !== 'number') return;
+
+  const pending = pendingRequests.get(data.id);
+  if (!pending) return;
+
+  pendingRequests.delete(data.id);
+
+  if (data.error) {
+    const msg = data.error.message || 'Error RPC';
+    setRpcStatus('error');
+    pending.reject(new Error(msg));
+    return;
+  }
+
+  setRpcStatus('ok');
+  pending.resolve(data.result);
+}
+
 async function toggleConnect() {
   if (connected || connecting) {
     disconnect();
@@ -793,7 +839,18 @@ async function toggleConnect() {
   setRpcStatus('iniciando');
 
   document.getElementById('btnConnect').disabled = true;
-  setStatus('connecting', 'Conectando...');
+  setStatus('connecting', 'Activando micrófono...');
+
+  try {
+    await ensureMicrophone();
+  } catch (e) {
+    log('No se pudo acceder al micrófono: ' + e.message, 'warn');
+    setStatus('error', 'Micrófono denegado');
+    setRpcStatus('error');
+    connecting = false;
+    document.getElementById('btnConnect').disabled = false;
+    return;
+  }
 
   loadPaho(async () => {
     try {
@@ -813,6 +870,8 @@ async function toggleConnect() {
 
       log('RemoteDescription configurado', 'ok');
 
+      attachLocalTracks(localStream);
+
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
 
@@ -820,17 +879,16 @@ async function toggleConnect() {
       log('Answer SDP:\n' + pc.localDescription.sdp, 'info');
 
       setStatus('connecting', 'Recolectando ICE...');
-
       await waitIceGatheringComplete(pc);
 
       log('ICE gathering completo. Enviando answer...', 'info');
 
       sendRpcNoWait(deviceId, 'answer', pc.localDescription.sdp);
 
-      setStatus('connecting', 'Esperando audio del ESP32...');
       document.getElementById('btnConnect').disabled = false;
       document.getElementById('btnConnect').textContent = 'Desconectar';
       document.getElementById('btnConnect').className = 'btn btn-danger';
+      setStatus('connecting', 'Esperando tráfico RTP...');
 
     } catch (e) {
       log('Error: ' + e.message, 'warn');
@@ -850,6 +908,8 @@ async function toggleConnect() {
       }
 
       pendingRequests.clear();
+      stopVisualizer();
+      stopLocalStream();
     }
   });
 }
@@ -865,14 +925,16 @@ function disconnect() {
   }
 
   stopVisualizer();
+  stopLocalStream();
+
   document.getElementById('audioEl').srcObject = null;
 
   mqttClient = null;
   connected = false;
   connecting = false;
   pendingRequests.clear();
-  setRpcStatus('—');
 
+  setRpcStatus('—');
   document.getElementById('btnConnect').textContent = 'Conectar';
   document.getElementById('btnConnect').className = 'btn btn-primary';
   document.getElementById('btnConnect').disabled = false;
