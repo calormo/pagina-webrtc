@@ -6,356 +6,87 @@
 <title>ESP32 WebRTC Audio</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Exo+2:wght@300;400;600&display=swap');
-
   :root {
-    --bg: #090e14;
-    --panel: #0d1520;
-    --border: #1a3a5c;
-    --accent: #00d4ff;
-    --accent2: #00ff88;
-    --warn: #ff6b35;
-    --text: #c8ddef;
-    --dim: #4a6a8a;
+    --bg: #090e14; --panel: #0d1520; --border: #1a3a5c;
+    --accent: #00d4ff; --accent2: #00ff88; --warn: #ff6b35;
+    --text: #c8ddef; --dim: #4a6a8a;
     --glow: 0 0 12px rgba(0,212,255,0.4);
     --glow2: 0 0 12px rgba(0,255,136,0.4);
   }
-
   * { box-sizing: border-box; margin: 0; padding: 0; }
-
   body {
-    background: var(--bg);
-    color: var(--text);
-    font-family: 'Exo 2', sans-serif;
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding: 20px;
+    background: var(--bg); color: var(--text);
+    font-family: 'Exo 2', sans-serif; min-height: 100vh;
+    display: flex; flex-direction: column; align-items: center; padding: 20px;
     background-image:
       radial-gradient(ellipse at 20% 20%, rgba(0,80,140,0.15) 0%, transparent 60%),
       radial-gradient(ellipse at 80% 80%, rgba(0,200,100,0.08) 0%, transparent 60%);
   }
-
   header {
-    width: 100%;
-    max-width: 700px;
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    padding: 18px 0 24px;
-    border-bottom: 1px solid var(--border);
-    margin-bottom: 28px;
+    width: 100%; max-width: 700px; display: flex; align-items: center; gap: 14px;
+    padding: 18px 0 24px; border-bottom: 1px solid var(--border); margin-bottom: 28px;
   }
-
   .logo-icon {
-    width: 42px;
-    height: 42px;
-    border: 2px solid var(--accent);
-    border-radius: 10px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    box-shadow: var(--glow);
-    flex-shrink: 0;
+    width: 42px; height: 42px; border: 2px solid var(--accent); border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: var(--glow); flex-shrink: 0;
   }
-
-  .logo-icon svg {
-    width: 22px;
-    height: 22px;
-    fill: var(--accent);
-  }
-
-  header h1 {
-    font-size: 1.3rem;
-    font-weight: 600;
-    letter-spacing: 0.05em;
-    color: #fff;
-  }
-
+  .logo-icon svg { width: 22px; height: 22px; fill: var(--accent); }
+  header h1 { font-size: 1.3rem; font-weight: 600; letter-spacing: 0.05em; color: #fff; }
   header h1 span { color: var(--accent); }
-
-  header small {
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 0.7rem;
-    color: var(--dim);
-    display: block;
-    margin-top: 2px;
-  }
-
-  .main {
-    width: 100%;
-    max-width: 700px;
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-  }
-
-  .card {
-    background: var(--panel);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 20px 22px;
-  }
-
-  .card-label {
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 0.65rem;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: var(--dim);
-    margin-bottom: 12px;
-  }
-
-  .url-row {
-    display: flex;
-    gap: 10px;
-    align-items: stretch;
-  }
-
+  header small { font-family: 'Share Tech Mono', monospace; font-size: 0.7rem; color: var(--dim); display: block; margin-top: 2px; }
+  .main { width: 100%; max-width: 700px; display: flex; flex-direction: column; gap: 16px; }
+  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 20px 22px; }
+  .card-label { font-family: 'Share Tech Mono', monospace; font-size: 0.65rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--dim); margin-bottom: 12px; }
+  .url-row { display: flex; gap: 10px; align-items: stretch; }
   #urlInput {
-    flex: 1;
-    background: #060b12;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 10px 14px;
-    color: var(--accent);
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 0.82rem;
-    outline: none;
-    transition: border-color 0.2s, box-shadow 0.2s;
+    flex: 1; background: #060b12; border: 1px solid var(--border); border-radius: 8px;
+    padding: 10px 14px; color: var(--accent); font-family: 'Share Tech Mono', monospace;
+    font-size: 0.82rem; outline: none; transition: border-color 0.2s, box-shadow 0.2s;
   }
-
-  #urlInput:focus {
-    border-color: var(--accent);
-    box-shadow: var(--glow);
-  }
-
+  #urlInput:focus { border-color: var(--accent); box-shadow: var(--glow); }
   #urlInput::placeholder { color: var(--dim); }
-
-  .status-row {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin-top: 12px;
-  }
-
-  .status-dot {
-    width: 10px;
-    height: 10px;
-    border-radius: 50%;
-    background: var(--dim);
-    transition: background 0.3s, box-shadow 0.3s;
-    flex-shrink: 0;
-  }
-
-  .status-dot.connecting {
-    background: var(--warn);
-    animation: pulse-warn 1s infinite;
-  }
-
-  .status-dot.connected {
-    background: var(--accent2);
-    box-shadow: var(--glow2);
-  }
-
-  .status-dot.error {
-    background: var(--warn);
-  }
-
-  @keyframes pulse-warn {
-    0%,100% { opacity:1; }
-    50% { opacity:0.3; }
-  }
-
-  #statusText {
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 0.78rem;
-    color: var(--dim);
-    transition: color 0.3s;
-  }
-
+  .status-row { display: flex; align-items: center; gap: 10px; margin-top: 12px; }
+  .status-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--dim); transition: background 0.3s, box-shadow 0.3s; flex-shrink: 0; }
+  .status-dot.connecting { background: var(--warn); animation: pulse-warn 1s infinite; }
+  .status-dot.connected { background: var(--accent2); box-shadow: var(--glow2); }
+  .status-dot.error { background: var(--warn); }
+  @keyframes pulse-warn { 0%,100% { opacity:1; } 50% { opacity:0.3; } }
+  #statusText { font-family: 'Share Tech Mono', monospace; font-size: 0.78rem; color: var(--dim); transition: color 0.3s; }
   #statusText.connecting { color: var(--warn); }
   #statusText.connected  { color: var(--accent2); }
   #statusText.error      { color: var(--warn); }
-
-  .btn {
-    border: none;
-    cursor: pointer;
-    border-radius: 8px;
-    font-family: 'Exo 2', sans-serif;
-    font-weight: 600;
-    font-size: 0.85rem;
-    letter-spacing: 0.05em;
-    padding: 10px 22px;
-    transition: all 0.2s;
-  }
-
-  .btn-primary {
-    background: var(--accent);
-    color: #000;
-    box-shadow: 0 0 16px rgba(0,212,255,0.3);
-  }
-
-  .btn-primary:hover {
-    background: #33ddff;
-    box-shadow: 0 0 24px rgba(0,212,255,0.5);
-  }
-
+  .btn { border: none; cursor: pointer; border-radius: 8px; font-family: 'Exo 2', sans-serif; font-weight: 600; font-size: 0.85rem; letter-spacing: 0.05em; padding: 10px 22px; transition: all 0.2s; }
+  .btn-primary { background: var(--accent); color: #000; box-shadow: 0 0 16px rgba(0,212,255,0.3); }
+  .btn-primary:hover { background: #33ddff; box-shadow: 0 0 24px rgba(0,212,255,0.5); }
   .btn-primary:active { transform: scale(0.97); }
-
-  .btn-danger {
-    background: transparent;
-    color: var(--warn);
-    border: 1px solid var(--warn);
-  }
-
-  .btn-danger:hover {
-    background: rgba(255,107,53,0.1);
-  }
-
-  .btn:disabled {
-    opacity: 0.4;
-    cursor: not-allowed;
-  }
-
-  .audio-panel {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 18px;
-    padding: 24px 22px;
-  }
-
-  .visualizer-wrap {
-    width: 100%;
-    height: 80px;
-    border-radius: 8px;
-    overflow: hidden;
-    background: #060b12;
-    border: 1px solid var(--border);
-  }
-
-  #visualizer {
-    width: 100%;
-    height: 100%;
-    display: block;
-  }
-
-  .volume-row {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    width: 100%;
-  }
-
-  .vol-label {
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 0.7rem;
-    color: var(--dim);
-    flex-shrink: 0;
-    width: 28px;
-    text-align: right;
-  }
-
-  input[type=range] {
-    flex: 1;
-    -webkit-appearance: none;
-    height: 4px;
-    border-radius: 4px;
-    background: var(--border);
-    outline: none;
-    cursor: pointer;
-  }
-
-  input[type=range]::-webkit-slider-thumb {
-    -webkit-appearance: none;
-    width: 16px;
-    height: 16px;
-    border-radius: 50%;
-    background: var(--accent);
-    box-shadow: var(--glow);
-    cursor: pointer;
-  }
-
-  #audioEl,
-  #localAudioMonitor {
-    display: none;
-  }
-
-  #log {
-    background: #060b12;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 12px 14px;
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 0.7rem;
-    color: var(--dim);
-    max-height: 220px;
-    overflow-y: auto;
-    line-height: 1.6;
-    white-space: pre-wrap;
-    word-break: break-word;
-  }
-
+  .btn-danger { background: transparent; color: var(--warn); border: 1px solid var(--warn); }
+  .btn-danger:hover { background: rgba(255,107,53,0.1); }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .audio-panel { display: flex; flex-direction: column; align-items: center; gap: 18px; padding: 24px 22px; }
+  .visualizer-wrap { width: 100%; height: 80px; border-radius: 8px; overflow: hidden; background: #060b12; border: 1px solid var(--border); }
+  #visualizer { width: 100%; height: 100%; display: block; }
+  .volume-row { display: flex; align-items: center; gap: 14px; width: 100%; }
+  .vol-label { font-family: 'Share Tech Mono', monospace; font-size: 0.7rem; color: var(--dim); flex-shrink: 0; width: 28px; text-align: right; }
+  input[type=range] { flex: 1; -webkit-appearance: none; height: 4px; border-radius: 4px; background: var(--border); outline: none; cursor: pointer; }
+  input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px; border-radius: 50%; background: var(--accent); box-shadow: var(--glow); cursor: pointer; }
+  #audioEl, #localAudioMonitor { display: none; }
+  #log { background: #060b12; border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; font-family: 'Share Tech Mono', monospace; font-size: 0.7rem; color: var(--dim); max-height: 280px; overflow-y: auto; line-height: 1.6; white-space: pre-wrap; word-break: break-word; }
   #log .log-ok   { color: var(--accent2); }
   #log .log-warn { color: var(--warn); }
   #log .log-info { color: var(--accent); }
-
-  .info-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 10px;
-  }
-
-  .info-cell {
-    background: #060b12;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 10px 14px;
-  }
-
-  .info-cell .key {
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 0.6rem;
-    color: var(--dim);
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    margin-bottom: 4px;
-  }
-
-  .info-cell .val {
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 0.78rem;
-    color: var(--accent);
-    word-break: break-all;
-  }
-
-  footer {
-    margin-top: 32px;
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 0.65rem;
-    color: var(--dim);
-    text-align: center;
-    opacity: 0.6;
-  }
-
+  .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .info-cell { background: #060b12; border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; }
+  .info-cell .key { font-family: 'Share Tech Mono', monospace; font-size: 0.6rem; color: var(--dim); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 4px; }
+  .info-cell .val { font-family: 'Share Tech Mono', monospace; font-size: 0.78rem; color: var(--accent); word-break: break-all; }
+  footer { margin-top: 32px; font-family: 'Share Tech Mono', monospace; font-size: 0.65rem; color: var(--dim); text-align: center; opacity: 0.6; }
   #log::-webkit-scrollbar { width: 4px; }
   #log::-webkit-scrollbar-track { background: transparent; }
   #log::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
-
-  @media (max-width: 640px) {
-    .url-row {
-      flex-direction: column;
-    }
-
-    .info-grid {
-      grid-template-columns: 1fr;
-    }
-  }
+  @media (max-width: 640px) { .url-row { flex-direction: column; } .info-grid { grid-template-columns: 1fr; } }
 </style>
 </head>
 <body>
-
 <header>
   <div class="logo-icon">
     <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -367,17 +98,11 @@
     <small>libpeer · broker.emqx.io · audio del iPhone al ESP32</small>
   </div>
 </header>
-
 <div class="main">
   <div class="card">
-    <div class="card-label">// conexión mqtt · señalización webrtc</div>
+    <div class="card-label">// conexion mqtt - señalizacion webrtc</div>
     <div class="url-row">
-      <input
-        id="urlInput"
-        type="text"
-        placeholder="mqtt://esp32-XXXX@broker.emqx.io:1883"
-        value="mqtt://esp32-3cdc7563d954@broker.emqx.io:1883"
-      />
+      <input id="urlInput" type="text" placeholder="mqtt://esp32-XXXX@broker.emqx.io:1883" value="mqtt://esp32-3cdc7563d954@broker.emqx.io:1883"/>
       <button class="btn btn-primary" id="btnConnect" onclick="toggleConnect()">Conectar</button>
     </div>
     <div class="status-row">
@@ -385,29 +110,17 @@
       <span id="statusText">Desconectado</span>
     </div>
   </div>
-
   <div class="card audio-panel">
     <div class="card-label" style="align-self:flex-start">// monitoreo de audio</div>
-    <div class="visualizer-wrap">
-      <canvas id="visualizer"></canvas>
-    </div>
+    <div class="visualizer-wrap"><canvas id="visualizer"></canvas></div>
     <div class="volume-row">
       <span class="vol-label">🔈</span>
-      <input
-        type="range"
-        id="volSlider"
-        min="0"
-        max="1"
-        step="0.01"
-        value="1"
-        oninput="setVolume(this.value)"
-      />
+      <input type="range" id="volSlider" min="0" max="1" step="0.01" value="1" oninput="setVolume(this.value)"/>
       <span class="vol-label">🔊</span>
     </div>
     <audio id="audioEl" autoplay playsinline></audio>
     <audio id="localAudioMonitor" muted playsinline autoplay></audio>
   </div>
-
   <div class="card">
     <div class="card-label">// info del dispositivo</div>
     <div class="info-grid">
@@ -417,276 +130,172 @@
       <div class="info-cell"><div class="key">Estado RPC</div><div class="val" id="infoRpc">—</div></div>
     </div>
   </div>
-
   <div class="card">
     <div class="card-label">// log de eventos</div>
-    <div id="log">Esperando conexión...\n</div>
+    <div id="log">Esperando conexion...\n</div>
   </div>
 </div>
-
-<footer>ESP32-S3 WebRTC Audio Sender desde iPhone · RPC invoke/result</footer>
+<footer>ESP32-S3 WebRTC Audio · RPC invoke/result · libpeer</footer>
 
 <script>
-let mqttClient = null;
-let pc = null;
-let localStream = null;
-let audioCtx = null;
-let analyser = null;
-let animFrame = null;
-let connected = false;
-let connecting = false;
-let rpcId = 1;
-let hasRelayCandidate = false;
+let mqttClient = null, pc = null, localStream = null;
+let audioCtx = null, analyser = null, animFrame = null;
+let connected = false, connecting = false, rpcId = 1;
 const pendingRequests = new Map();
 
+/* ── Credenciales TURN Metered (reemplazar con las tuyas) ── */
+const TURN_USER = "91eb277c84143a6b3628f181";
+const TURN_CRED = "8QErkMASEBsV9+qV";
+const ICE_SERVERS = [
+  { urls: "stun:stun.relay.metered.ca:80" },
+  { urls: "turn:global.relay.metered.ca:80",            username: TURN_USER, credential: TURN_CRED },
+  { urls: "turn:global.relay.metered.ca:80?transport=tcp", username: TURN_USER, credential: TURN_CRED },
+  { urls: "turn:global.relay.metered.ca:443",           username: TURN_USER, credential: TURN_CRED },
+  { urls: "turns:global.relay.metered.ca:443?transport=tcp", username: TURN_USER, credential: TURN_CRED },
+];
+
 function parseUrl(raw) {
-  const url = raw.trim();
-  const m = url.match(/^mqtt:\/\/([^@]+)@([^:\/]+):(\d+)\/?$/);
-  if (!m) throw new Error('URL inválida. Formato: mqtt://deviceId@host:port');
+  const m = raw.trim().match(/^mqtt:\/\/([^@]+)@([^:/]+):(\d+)\/?$/);
+  if (!m) throw new Error('URL invalida. Formato: mqtt://deviceId@host:port');
   return { deviceId: m[1], host: m[2], port: parseInt(m[3], 10) };
 }
-
 function brokerWsUrl(host) {
-  if (host.includes('emqx')) {
-    return { url: `wss://${host}:8084/mqtt`, host, port: 8084, path: '/mqtt', ssl: true };
-  }
-  if (host.includes('hivemq')) {
-    return { url: `wss://${host}:8884/mqtt`, host, port: 8884, path: '/mqtt', ssl: true };
-  }
+  if (host.includes('emqx'))   return { url: `wss://${host}:8084/mqtt`, host, port: 8084, path: '/mqtt', ssl: true };
+  if (host.includes('hivemq')) return { url: `wss://${host}:8884/mqtt`, host, port: 8884, path: '/mqtt', ssl: true };
   return { url: `ws://${host}:8083/mqtt`, host, port: 8083, path: '/mqtt', ssl: false };
 }
+function getTopics(id) { return { invoke: `/${id}/invoke`, result: `/${id}/result` }; }
 
-function getTopics(deviceId) {
-  return {
-    invoke: `/${deviceId}/invoke`,
-    result: `/${deviceId}/result`
-  };
-}
-
-function log(msg, type = '') {
+function log(msg, type='') {
   const el = document.getElementById('log');
   const ts = new Date().toLocaleTimeString('es', { hour12: false });
   const cls = type ? ` class="log-${type}"` : '';
   el.innerHTML += `<span${cls}>[${ts}] ${msg}</span>\n`;
   el.scrollTop = el.scrollHeight;
 }
-
 function setStatus(state, text) {
-  const dot = document.getElementById('statusDot');
-  const span = document.getElementById('statusText');
-  dot.className = 'status-dot ' + state;
-  span.className = state;
-  span.textContent = text;
+  document.getElementById('statusDot').className = 'status-dot ' + state;
+  const s = document.getElementById('statusText');
+  s.className = state; s.textContent = text;
 }
-
-function setRpcStatus(text) {
-  document.getElementById('infoRpc').textContent = text;
-}
-
-function setVolume(v) {
-  document.getElementById('audioEl').volume = Number(v);
-}
+function setRpcStatus(text) { document.getElementById('infoRpc').textContent = text; }
+function setVolume(v) { document.getElementById('audioEl').volume = Number(v); }
 
 function startVisualizer(stream) {
-  if (audioCtx) {
-    try { audioCtx.close(); } catch {}
-  }
-
+  if (audioCtx) { try { audioCtx.close(); } catch {} }
   audioCtx = new (window.AudioContext || window.webkitAudioContext)();
   const src = audioCtx.createMediaStreamSource(stream);
-  analyser = audioCtx.createAnalyser();
-  analyser.fftSize = 256;
+  analyser = audioCtx.createAnalyser(); analyser.fftSize = 256;
   src.connect(analyser);
-
   const canvas = document.getElementById('visualizer');
   const ctx = canvas.getContext('2d');
-
   function draw() {
     animFrame = requestAnimationFrame(draw);
-    canvas.width = canvas.offsetWidth;
-    canvas.height = canvas.offsetHeight;
-
+    canvas.width = canvas.offsetWidth; canvas.height = canvas.offsetHeight;
     const buf = new Uint8Array(analyser.frequencyBinCount);
     analyser.getByteFrequencyData(buf);
-
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    const barW = (canvas.width / buf.length) * 2.5;
-    let x = 0;
-
+    const barW = (canvas.width / buf.length) * 2.5; let x = 0;
     for (let i = 0; i < buf.length; i++) {
-      const h = (buf[i] / 255) * canvas.height;
-      const ratio = buf[i] / 255;
-      const r = 0;
-      const g = Math.round(180 + ratio * 75);
-      const b = Math.round(255 - ratio * 100);
-      ctx.fillStyle = `rgba(${r},${g},${b},0.85)`;
-      ctx.fillRect(x, canvas.height - h, barW - 1, h);
-      x += barW;
+      const h = (buf[i]/255)*canvas.height, ratio = buf[i]/255;
+      ctx.fillStyle = `rgba(0,${Math.round(180+ratio*75)},${Math.round(255-ratio*100)},0.85)`;
+      ctx.fillRect(x, canvas.height-h, barW-1, h); x += barW;
     }
   }
-
   draw();
 }
-
 function stopVisualizer() {
-  if (animFrame) cancelAnimationFrame(animFrame);
-  animFrame = null;
-
-  if (audioCtx) {
-    try { audioCtx.close(); } catch {}
-    audioCtx = null;
-  }
-
+  if (animFrame) cancelAnimationFrame(animFrame); animFrame = null;
+  if (audioCtx) { try { audioCtx.close(); } catch {} audioCtx = null; }
   const canvas = document.getElementById('visualizer');
   const ctx = canvas.getContext('2d');
-  canvas.width = canvas.offsetWidth;
-  canvas.height = canvas.offsetHeight;
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  canvas.width = canvas.offsetWidth; canvas.height = canvas.offsetHeight;
+  ctx.clearRect(0,0,canvas.width,canvas.height);
 }
 
 async function ensureMicrophone() {
   if (localStream) return localStream;
-
-  log('Solicitando permiso de micrófono...', 'info');
-
+  log('Solicitando microfono...', 'info');
   localStream = await navigator.mediaDevices.getUserMedia({
-    audio: {
-      echoCancellation: true,
-      noiseSuppression: true,
-      autoGainControl: true,
-      channelCount: 1
-    },
-    video: false
+    audio: { echoCancellation:true, noiseSuppression:true, autoGainControl:true, channelCount:1 }, video: false
   });
-
   document.getElementById('localAudioMonitor').srcObject = localStream;
-  log('Micrófono activado ✓', 'ok');
+  log('Microfono activado', 'ok');
   return localStream;
 }
-
 function stopLocalStream() {
-  if (localStream) {
-    localStream.getTracks().forEach(t => t.stop());
-    localStream = null;
-  }
+  if (localStream) { localStream.getTracks().forEach(t=>t.stop()); localStream = null; }
   document.getElementById('localAudioMonitor').srcObject = null;
 }
 
 function createPeerConnection() {
-  pc = new RTCPeerConnection({
-   iceServers: [
-      {
-        urls: "stun:stun.relay.metered.ca:80",
-      },
-      {
-        urls: "turn:global.relay.metered.ca:80",
-        username: "91eb277c84143a6b3628f181",
-        credential: "8QErkMASEBsV9+qV",
-      },
-      {
-        urls: "turn:global.relay.metered.ca:80?transport=tcp",
-        username: "91eb277c84143a6b3628f181",
-        credential: "8QErkMASEBsV9+qV",
-      },
-      {
-        urls: "turn:global.relay.metered.ca:443",
-        username: "91eb277c84143a6b3628f181",
-        credential: "8QErkMASEBsV9+qV",
-      },
-      {
-        urls: "turns:global.relay.metered.ca:443?transport=tcp",
-        username: "91eb277c84143a6b3628f181",
-        credential: "8QErkMASEBsV9+qV",
-      },
-  ],
-    iceTransportPolicy: 'all'
-  });
+  pc = new RTCPeerConnection({ iceServers: ICE_SERVERS, iceTransportPolicy: 'all' });
 
   pc.onicecandidate = (e) => {
     if (e.candidate) {
-      const cand = e.candidate.candidate || '';
-      log('ICE candidate: ' + cand, 'info');
-      if (cand.includes(' typ relay ')) {
-        hasRelayCandidate = true;
-        log('Relay candidate detectada ✓', 'ok');
-      }
+      const c = e.candidate.candidate || '';
+      const type = c.includes(' typ relay ') ? 'relay' : c.includes(' typ srflx ') ? 'srflx' : 'host';
+      log(`ICE cand [${type}]: ${c.substring(0,60)}...`, type==='relay'?'ok':'info');
     } else {
-      log('ICE candidate: fin de candidatos', 'info');
+      log('ICE gathering: FIN', 'ok');
     }
   };
 
   pc.onicecandidateerror = (e) => {
-    log(`ICE candidate error: url=${e.url || '-'} code=${e.errorCode || '-'} text=${e.errorText || '-'}`, 'warn');
+    // Solo loguear errores criticos (no 701 = network error temporal)
+    if (e.errorCode !== 701) {
+      log(`ICE error: code=${e.errorCode} url=${e.url||'-'}`, 'warn');
+    }
   };
 
   pc.ontrack = (e) => {
-    log('Track remoto recibido: ' + e.track.kind, 'ok');
+    log('Track remoto: ' + e.track.kind, 'ok');
     if (e.streams && e.streams[0]) {
       const audio = document.getElementById('audioEl');
       audio.srcObject = e.streams[0];
-      audio.play().catch(() => {});
+      audio.play().catch(()=>{});
     }
   };
 
   pc.oniceconnectionstatechange = () => {
     const s = pc.iceConnectionState;
     document.getElementById('infoIce').textContent = s;
-    log('ICE: ' + s, s === 'connected' || s === 'completed' ? 'ok' : s === 'failed' ? 'warn' : 'info');
-
-    if (s === 'connected' || s === 'completed') {
-      setStatus('connected', 'Audio enviándose');
-      setRpcStatus('conectado');
-      connected = true;
-      connecting = false;
-      document.getElementById('btnConnect').textContent = 'Desconectar';
-      document.getElementById('btnConnect').className = 'btn btn-danger';
-      document.getElementById('btnConnect').disabled = false;
-    } else if (s === 'failed' || s === 'disconnected') {
-      setStatus('error', 'ICE fallido');
-      setRpcStatus('error');
-      connecting = false;
-      document.getElementById('btnConnect').disabled = false;
+    log('ICE: ' + s, s==='connected'||s==='completed'?'ok':s==='failed'?'warn':'info');
+    if (s==='connected'||s==='completed') {
+      setStatus('connected', 'Audio enviandose');
+      setRpcStatus('conectado'); connected=true; connecting=false;
+      document.getElementById('btnConnect').textContent='Desconectar';
+      document.getElementById('btnConnect').className='btn btn-danger';
+      document.getElementById('btnConnect').disabled=false;
+    } else if (s==='failed'||s==='disconnected') {
+      setStatus('error','ICE fallido'); setRpcStatus('error');
+      connecting=false; document.getElementById('btnConnect').disabled=false;
     }
   };
 
-  pc.onconnectionstatechange = () => {
-    log('PeerConnection: ' + pc.connectionState, 'info');
-  };
-
-  pc.onicegatheringstatechange = () => {
-    log('ICE gathering: ' + pc.iceGatheringState, 'info');
-  };
-
+  pc.onconnectionstatechange = () => log('PeerConnection: '+pc.connectionState,'info');
+  pc.onicegatheringstatechange = () => log('Gathering: '+pc.iceGatheringState,'info');
   return pc;
 }
 
-function attachLocalTracks(stream) {
-  const senders = pc.getSenders();
-  const alreadyHasAudio = senders.some(s => s.track && s.track.kind === 'audio');
-  if (alreadyHasAudio) return;
-
-  stream.getAudioTracks().forEach(track => {
-    pc.addTrack(track, stream);
-    log('Track local agregado: ' + track.kind, 'ok');
-  });
-
-  startVisualizer(stream);
-}
-
-function waitIceGatheringComplete(peer) {
+/* Esperar hasta que el ICE gathering este COMPLETAMENTE terminado
+   El SDP de localDescription se actualiza automaticamente con TODOS los candidatos */
+function waitGatheringDone(peer, timeoutMs=20000) {
   return new Promise((resolve) => {
-    if (peer.iceGatheringState === 'complete') {
+    if (peer.iceGatheringState === 'complete') { resolve(); return; }
+    const timer = setTimeout(() => {
+      peer.removeEventListener('icegatheringstatechange', check);
+      log('ICE gathering timeout - usando candidatos disponibles', 'warn');
       resolve();
-      return;
-    }
-    function onStateChange() {
+    }, timeoutMs);
+    function check() {
       if (peer.iceGatheringState === 'complete') {
-        peer.removeEventListener('icegatheringstatechange', onStateChange);
+        clearTimeout(timer);
+        peer.removeEventListener('icegatheringstatechange', check);
         resolve();
       }
     }
-    peer.addEventListener('icegatheringstatechange', onStateChange);
+    peer.addEventListener('icegatheringstatechange', check);
   });
 }
 
@@ -695,161 +304,106 @@ function loadPaho(cb) {
   const s = document.createElement('script');
   s.src = 'https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.1.0/paho-mqtt.min.js';
   s.onload = cb;
-  s.onerror = () => log('No se pudo cargar la librería Paho MQTT', 'warn');
+  s.onerror = () => log('No se pudo cargar Paho MQTT', 'warn');
   document.head.appendChild(s);
 }
 
 function connectMqtt(deviceId, broker) {
   return new Promise((resolve, reject) => {
-    const clientId = 'browser-' + Math.random().toString(36).slice(2, 8);
+    const clientId = 'browser-' + Math.random().toString(36).slice(2,8);
     const topics = getTopics(deviceId);
-
     log('Conectando MQTT: ' + broker.url, 'info');
-
     const client = new Paho.Client(broker.host, broker.port, broker.path, clientId);
-
     client.onConnectionLost = (r) => {
       if (r.errorCode !== 0) {
-        log('MQTT desconectado: ' + r.errorMessage, 'warn');
-        setStatus('error', 'MQTT desconectado');
-        setRpcStatus('desconectado');
-        connecting = false;
-        document.getElementById('btnConnect').disabled = false;
+        log('MQTT desconectado: '+r.errorMessage,'warn');
+        setStatus('error','MQTT desconectado'); setRpcStatus('desconectado');
+        connecting=false; document.getElementById('btnConnect').disabled=false;
       }
     };
-
     client.onMessageArrived = (msg) => {
-      log(`MQTT RX [${msg.destinationName}]`, 'info');
-      if (msg.destinationName === topics.result) handleRpcResponse(msg.payloadString);
+      log(`MQTT RX [${msg.destinationName}]`,'info');
+      if (msg.destinationName===topics.result) handleRpcResponse(msg.payloadString);
     };
-
     client.connect({
       useSSL: broker.ssl,
       onSuccess: () => {
-        log('MQTT conectado ✓', 'ok');
+        log('MQTT conectado', 'ok');
         client.subscribe(topics.result, {
-          onSuccess: () => {
-            log('Suscrito a ' + topics.result, 'ok');
-            mqttClient = client;
-            resolve(client);
-          },
-          onFailure: () => reject(new Error('No se pudo suscribir a ' + topics.result))
+          onSuccess: () => { log('Suscrito a '+topics.result,'ok'); mqttClient=client; resolve(client); },
+          onFailure: () => reject(new Error('No se pudo suscribir a '+topics.result))
         });
       },
-      onFailure: (err) => reject(new Error(err.errorMessage || 'Error MQTT')),
+      onFailure: (err) => reject(new Error(err.errorMessage||'Error MQTT')),
       timeout: 10
     });
   });
 }
 
-function sendRpc(deviceId, method, params = null) {
+function sendRpc(deviceId, method, params=null) {
   return new Promise((resolve, reject) => {
     if (!mqttClient) return reject(new Error('MQTT no conectado'));
-
     const id = rpcId++;
     pendingRequests.set(id, { resolve, reject, method });
-
-    const payload = { jsonrpc: '2.0', id, method };
-    if (params !== null) payload.params = params;
-
+    const payload = { jsonrpc:'2.0', id, method };
+    if (params!==null) payload.params = params;
     const msg = new Paho.Message(JSON.stringify(payload));
     msg.destinationName = getTopics(deviceId).invoke;
     mqttClient.send(msg);
-
     setRpcStatus(method);
-    log(`RPC enviado: ${method} -> ${msg.destinationName}`, 'info');
-
+    log(`RPC -> ${method}`, 'info');
     setTimeout(() => {
       if (pendingRequests.has(id)) {
         pendingRequests.delete(id);
-        reject(new Error(`Timeout esperando respuesta RPC: ${method}`));
+        reject(new Error(`Timeout RPC: ${method}`));
       }
     }, 15000);
   });
 }
 
-function sendRpcNoWait(deviceId, method, params = null) {
+function sendRpcNoWait(deviceId, method, params=null) {
   if (!mqttClient) throw new Error('MQTT no conectado');
-
-  const payload = { jsonrpc: '2.0', id: rpcId++, method };
-  if (params !== null) payload.params = params;
-
+  const payload = { jsonrpc:'2.0', id:rpcId++, method };
+  if (params!==null) payload.params = params;
   const msg = new Paho.Message(JSON.stringify(payload));
   msg.destinationName = getTopics(deviceId).invoke;
   mqttClient.send(msg);
-
-  setRpcStatus(method + ' enviado');
-  log(`RPC enviado sin espera: ${method} -> ${msg.destinationName}`, 'info');
+  setRpcStatus(method+' enviado');
+  log(`RPC -> ${method} (no-wait)`, 'info');
 }
 
 function handleRpcResponse(raw) {
   let data;
-  try {
-    data = JSON.parse(raw);
-  } catch {
-    log('Mensaje no JSON recibido en result', 'warn');
-    return;
-  }
-
-  log('RPC recibido: ' + raw, 'info');
-
+  try { data = JSON.parse(raw); } catch { log('JSON invalido en result','warn'); return; }
+  log('RPC RX: '+raw.substring(0,80),'info');
   if (typeof data.id !== 'number') return;
-
   const pending = pendingRequests.get(data.id);
   if (!pending) return;
-
   pendingRequests.delete(data.id);
-
-  if (data.error) {
-    const msg = data.error.message || 'Error RPC';
-    setRpcStatus('error');
-    pending.reject(new Error(msg));
-    return;
-  }
-
-  setRpcStatus('ok');
-  pending.resolve(data.result);
+  if (data.error) { setRpcStatus('error'); pending.reject(new Error(data.error.message||'Error RPC')); return; }
+  setRpcStatus('ok'); pending.resolve(data.result);
 }
 
 async function toggleConnect() {
-  if (connected || connecting) {
-    disconnect();
-    return;
-  }
-
+  if (connected || connecting) { disconnect(); return; }
   const raw = document.getElementById('urlInput').value;
   let parsed;
-
-  try {
-    parsed = parseUrl(raw);
-  } catch (e) {
-    log(e.message, 'warn');
-    return;
-  }
-
+  try { parsed = parseUrl(raw); } catch(e) { log(e.message,'warn'); return; }
   const { deviceId, host } = parsed;
   const broker = brokerWsUrl(host);
-
   connecting = true;
-  hasRelayCandidate = false;
-
   document.getElementById('infoId').textContent = deviceId;
   document.getElementById('infoBroker').textContent = host;
   document.getElementById('infoIce').textContent = '—';
   setRpcStatus('iniciando');
-
   document.getElementById('btnConnect').disabled = true;
-  setStatus('connecting', 'Activando micrófono...');
+  setStatus('connecting','Activando microfono...');
 
-  try {
-    await ensureMicrophone();
-  } catch (e) {
-    log('No se pudo acceder al micrófono: ' + e.message, 'warn');
-    setStatus('error', 'Micrófono denegado');
-    setRpcStatus('error');
-    connecting = false;
-    document.getElementById('btnConnect').disabled = false;
-    return;
+  try { await ensureMicrophone(); }
+  catch(e) {
+    log('Microfono denegado: '+e.message,'warn');
+    setStatus('error','Microfono denegado'); setRpcStatus('error');
+    connecting=false; document.getElementById('btnConnect').disabled=false; return;
   }
 
   loadPaho(async () => {
@@ -857,97 +411,72 @@ async function toggleConnect() {
       createPeerConnection();
       await connectMqtt(deviceId, broker);
 
-      setStatus('connecting', 'Solicitando offer al ESP32...');
+      setStatus('connecting','Solicitando offer al ESP32...');
       const offerSdp = await sendRpc(deviceId, 'offer');
-
       log('Offer recibido del ESP32', 'ok');
 
-      await pc.setRemoteDescription({
-        type: 'offer',
-        sdp: offerSdp
-      });
-
+      await pc.setRemoteDescription({ type:'offer', sdp:offerSdp });
       log('RemoteDescription configurado', 'ok');
 
-      attachLocalTracks(localStream);
+      // Agregar tracks ANTES de crear el answer
+      localStream.getAudioTracks().forEach(track => { pc.addTrack(track, localStream); });
+      log('Track de audio agregado', 'ok');
+      startVisualizer(localStream);
 
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
+      log('Answer creado. Esperando ICE gathering completo...', 'info');
+      setStatus('connecting','Recolectando candidatos ICE...');
 
-      log('Answer local creado', 'ok');
-      log('Answer SDP:\n' + pc.localDescription.sdp, 'info');
+      // *** FIX CLAVE: esperar gathering COMPLETO antes de enviar ***
+      // El SDP de localDescription se actualiza con todos los candidatos automaticamente
+      await waitGatheringDone(pc, 20000);
 
-      setStatus('connecting', 'Recolectando ICE...');
+      const finalSdp = pc.localDescription.sdp;
+      const candLines = (finalSdp.match(/^a=candidate:.+$/mg) || []);
+      const relayCount = candLines.filter(l=>l.includes('typ relay')).length;
+      const srflxCount = candLines.filter(l=>l.includes('typ srflx')).length;
+      const hostCount  = candLines.filter(l=>l.includes('typ host')).length;
 
-      const start = Date.now();
-      while (!hasRelayCandidate &&
-             pc.iceGatheringState !== 'complete' &&
-             (Date.now() - start) < 15000) {
-        await new Promise(resolve => setTimeout(resolve, 250));
+      log(`Candidatos: ${candLines.length} total (host:${hostCount} srflx:${srflxCount} relay:${relayCount})`,
+          relayCount > 0 ? 'ok' : 'warn');
+
+      if (relayCount === 0) {
+        log('ADVERTENCIA: sin candidatos relay - la conexion desde 4G puede fallar', 'warn');
       }
 
-      log('Enviando answer con los candidatos disponibles...', 'info');
-      log('Tiene relay: ' + (hasRelayCandidate ? 'sí' : 'no'),
-          hasRelayCandidate ? 'ok' : 'warn');
+      sendRpcNoWait(deviceId, 'answer', finalSdp);
+      log('Answer enviado al ESP32', 'ok');
 
-      sendRpcNoWait(deviceId, 'answer', pc.localDescription.sdp);
+      document.getElementById('btnConnect').disabled=false;
+      document.getElementById('btnConnect').textContent='Desconectar';
+      document.getElementById('btnConnect').className='btn btn-danger';
+      setStatus('connecting','Esperando ICE connected...');
 
-      document.getElementById('btnConnect').disabled = false;
-      document.getElementById('btnConnect').textContent = 'Desconectar';
-      document.getElementById('btnConnect').className = 'btn btn-danger';
-      setStatus('connecting', 'Esperando tráfico RTP...');
-    } catch (e) {
-      log('Error: ' + e.message, 'warn');
-      setStatus('error', 'Error de conexión');
-      setRpcStatus('error');
-      connecting = false;
-      document.getElementById('btnConnect').disabled = false;
-
-      if (pc) {
-        try { pc.close(); } catch {}
-        pc = null;
-      }
-
-      if (mqttClient) {
-        try { mqttClient.disconnect(); } catch {}
-        mqttClient = null;
-      }
-
-      pendingRequests.clear();
-      stopVisualizer();
-      stopLocalStream();
+    } catch(e) {
+      log('Error: '+e.message,'warn');
+      setStatus('error','Error de conexion'); setRpcStatus('error');
+      connecting=false; document.getElementById('btnConnect').disabled=false;
+      if (pc) { try{pc.close();}catch{} pc=null; }
+      if (mqttClient) { try{mqttClient.disconnect();}catch{} mqttClient=null; }
+      pendingRequests.clear(); stopVisualizer(); stopLocalStream();
     }
   });
 }
 
 function disconnect() {
-  if (mqttClient) {
-    try { mqttClient.disconnect(); } catch {}
-  }
-  if (pc) {
-    try { pc.close(); } catch {}
-    pc = null;
-  }
-
-  stopVisualizer();
-  stopLocalStream();
-
+  if (mqttClient) { try{mqttClient.disconnect();}catch{} }
+  if (pc) { try{pc.close();}catch{} pc=null; }
+  stopVisualizer(); stopLocalStream();
   document.getElementById('audioEl').srcObject = null;
-
-  mqttClient = null;
-  connected = false;
-  connecting = false;
-  hasRelayCandidate = false;
-  pendingRequests.clear();
-
+  mqttClient=null; connected=false; connecting=false; pendingRequests.clear();
   setRpcStatus('—');
-  document.getElementById('btnConnect').textContent = 'Conectar';
-  document.getElementById('btnConnect').className = 'btn btn-primary';
-  document.getElementById('btnConnect').disabled = false;
-  document.getElementById('infoIce').textContent = '—';
-
-  setStatus('', 'Desconectado');
-  log('Desconectado', 'warn');
+  document.getElementById('btnConnect').textContent='Conectar';
+  document.getElementById('btnConnect').className='btn btn-primary';
+  document.getElementById('btnConnect').disabled=false;
+  document.getElementById('infoIce').textContent='—';
+  setStatus('','Desconectado');
+  log('Desconectado','warn');
 }
 </script>
 </body>
