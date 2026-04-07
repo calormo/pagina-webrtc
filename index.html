@@ -146,7 +146,7 @@ const pendingRequests = new Map();
 /* ── Cloudflare TURN ── */
 const CF_TURN_TOKEN_ID = "942b6d8e0344e9bed0668de167d1466f";
 const CF_API_TOKEN = "1c6bb32b654ab3c3db4ce60b3a722389f6fd480c30ec8817099131cf94076c97";
-  
+
 async function getIceServers() {
   try {
     const resp = await fetch(
@@ -160,13 +160,25 @@ async function getIceServers() {
         body: JSON.stringify({ ttl: 86400 })
       }
     );
+    if (!resp.ok) throw new Error("HTTP " + resp.status);
     const data = await resp.json();
-    console.log("Cloudflare ICE servers:", data.iceServers);
+    log('TURN credentials obtenidas de Cloudflare', 'ok');
     return data.iceServers;
   } catch (e) {
-    console.error("Error obteniendo TURN credentials:", e);
-    // Fallback a solo STUN si falla
-    return [{ urls: "stun:stun.cloudflare.com:3478" }];
+    log('Cloudflare API fallo (' + e.message + '), usando credenciales hardcoded', 'warn');
+    // Credenciales generadas manualmente (duran 24h, regenerar con curl)
+    return [
+      { urls: ["stun:stun.cloudflare.com:3478"] },
+      {
+        urls: [
+          "turn:turn.cloudflare.com:3478?transport=udp",
+          "turn:turn.cloudflare.com:3478?transport=tcp",
+          "turns:turn.cloudflare.com:5349?transport=tcp"
+        ],
+        username: "g0bfdd7bcd1a83dc762153b6b6b0737893f093c088d73e0d7e4d85144f0906b3",
+        credential: "f5440404a911889aca75a87cd66d2855cf7a70261198686db02276397ec606fa"
+      }
+    ];
   }
 }
 
