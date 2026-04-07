@@ -143,16 +143,32 @@ let audioCtx = null, analyser = null, animFrame = null;
 let connected = false, connecting = false, rpcId = 1;
 const pendingRequests = new Map();
 
-/* ── Credenciales TURN Metered (reemplazar con las tuyas) ── */
-const TURN_USER = "91eb277c84143a6b3628f181";
-const TURN_CRED = "8QErkMASEBsV9+qV";
-const ICE_SERVERS = [
-  { urls: "stun:stun.relay.metered.ca:80" },
-  { urls: "turn:global.relay.metered.ca:80",            username: TURN_USER, credential: TURN_CRED },
-  { urls: "turn:global.relay.metered.ca:80?transport=tcp", username: TURN_USER, credential: TURN_CRED },
-  { urls: "turn:global.relay.metered.ca:443",           username: TURN_USER, credential: TURN_CRED },
-  { urls: "turns:global.relay.metered.ca:443?transport=tcp", username: TURN_USER, credential: TURN_CRED },
-];
+/* ── Cloudflare TURN ── */
+const CF_TURN_TOKEN_ID = "942b6d8e0344e9bed0668de167d1466f";
+const CF_API_TOKEN = "1c6bb32b654ab3c3db4ce60b3a722389f6fd480c30ec8817099131cf94076c97";
+  
+async function getIceServers() {
+  try {
+    const resp = await fetch(
+      `https://rtc.live.cloudflare.com/v1/turn/keys/${CF_TURN_TOKEN_ID}/credentials/generate-ice-servers`,
+      {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${CF_API_TOKEN}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ ttl: 86400 })
+      }
+    );
+    const data = await resp.json();
+    console.log("Cloudflare ICE servers:", data.iceServers);
+    return data.iceServers;
+  } catch (e) {
+    console.error("Error obteniendo TURN credentials:", e);
+    // Fallback a solo STUN si falla
+    return [{ urls: "stun:stun.cloudflare.com:3478" }];
+  }
+}
 
 function parseUrl(raw) {
   const m = raw.trim().match(/^mqtt:\/\/([^@]+)@([^:/]+):(\d+)\/?$/);
