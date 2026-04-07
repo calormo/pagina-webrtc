@@ -258,7 +258,7 @@ function stopLocalStream() {
 }
 
 function createPeerConnection(iceServers) {
-  pc = new RTCPeerConnection({ iceServers: iceServers, iceTransportPolicy: 'relay' });
+  pc = new RTCPeerConnection({ iceServers: iceServers, iceTransportPolicy: 'all' });
   
   pc.onicecandidate = (e) => {
     if (e.candidate) {
