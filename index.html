@@ -244,9 +244,9 @@ function stopLocalStream() {
   document.getElementById('localAudioMonitor').srcObject = null;
 }
 
-function createPeerConnection() {
-  pc = new RTCPeerConnection({ iceServers: ICE_SERVERS, iceTransportPolicy: 'relay' });    
-                                <!-- antes era iceTransportPolicy: 'relay' -->
+function createPeerConnection(iceServers) {
+  pc = new RTCPeerConnection({ iceServers: iceServers, iceTransportPolicy: 'relay' });
+  
   pc.onicecandidate = (e) => {
     if (e.candidate) {
       const c = e.candidate.candidate || '';
@@ -424,9 +424,11 @@ async function toggleConnect() {
 
   loadPaho(async () => {
     try {
-      createPeerConnection();
+      setStatus('connecting','Obteniendo TURN credentials...');
+      const iceServers = await getIceServers();
+      createPeerConnection(iceServers);
       await connectMqtt(deviceId, broker);
-
+      
       setStatus('connecting','Solicitando offer al ESP32...');
       const offerSdp = await sendRpc(deviceId, 'offer');
       log('Offer recibido del ESP32', 'ok');
