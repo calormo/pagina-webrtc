@@ -482,7 +482,8 @@ async function toggleConnect() {
       const iceServers = await getIceServers();
       createPeerConnection(iceServers);
       await connectMqtt(deviceId, broker, username, password);
-      
+      setEmgButtons(true);
+
       setStatus('connecting','Solicitando offer al ESP32...');
       const offerSdp = await sendRpc(deviceId, 'offer');
       log('Offer recibido del ESP32', 'ok');
