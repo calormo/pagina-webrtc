@@ -140,8 +140,8 @@
   <div class="card">
     <div class="card-label">// comandos mqtt</div>
     <div class="emg-row">
-      <button class="btn btn-emg" id="btnEmg001" onclick="sendEmgCmd('emg001')" disabled>emg001</button>
-      <button class="btn btn-emg" id="btnEmg002" onclick="sendEmgCmd('emg002')" disabled>emg002</button>
+      <button class="btn btn-emg" id="btnEmg001" onclick="sendEmgCmd('emg001')">emg001</button>
+      <button class="btn btn-emg" id="btnEmg002" onclick="sendEmgCmd('emg002')">emg002</button>
     </div>
   </div>
   <div class="card">
@@ -167,13 +167,11 @@ let connected = false, connecting = false, rpcId = 1;
 let currentDeviceId = null;
 const pendingRequests = new Map();
 
-function setEmgButtons(enabled) {
-  document.getElementById('btnEmg001').disabled = !enabled;
-  document.getElementById('btnEmg002').disabled = !enabled;
-}
 function sendEmgCmd(cmd) {
-  if (!mqttClient || !currentDeviceId) { log('No conectado', 'warn'); return; }
-  sendRpcNoWait(currentDeviceId, cmd);
+  if (!mqttClient) { log('MQTT no conectado — presiona Conectar primero', 'warn'); return; }
+  const devId = currentDeviceId || (() => { try { return parseUrl(document.getElementById('urlInput').value).deviceId; } catch { return null; } })();
+  if (!devId) { log('Device ID invalido', 'warn'); return; }
+  sendRpcNoWait(devId, cmd);
 }
 
 /* ── Cloudflare TURN ── */
@@ -329,11 +327,9 @@ function createPeerConnection(iceServers) {
       document.getElementById('btnConnect').textContent='Desconectar';
       document.getElementById('btnConnect').className='btn btn-danger';
       document.getElementById('btnConnect').disabled=false;
-      setEmgButtons(true);
     } else if (s==='failed'||s==='disconnected') {
       setStatus('error','ICE fallido'); setRpcStatus('error');
       connecting=false; document.getElementById('btnConnect').disabled=false;
-      setEmgButtons(false);
     }
   };
 
@@ -382,7 +378,6 @@ function connectMqtt(deviceId, broker, username, password) {
       if (r.errorCode !== 0) {
         log('MQTT desconectado: '+r.errorMessage,'warn');
         setStatus('error','MQTT desconectado'); setRpcStatus('desconectado');
-        setEmgButtons(false);
         connecting=false; document.getElementById('btnConnect').disabled=false;
       }
     };
@@ -482,8 +477,6 @@ async function toggleConnect() {
       const iceServers = await getIceServers();
       createPeerConnection(iceServers);
       await connectMqtt(deviceId, broker, username, password);
-      setEmgButtons(true);
-
       setStatus('connecting','Solicitando offer al ESP32...');
       const offerSdp = await sendRpc(deviceId, 'offer');
       log('Offer recibido del ESP32', 'ok');
@@ -557,7 +550,6 @@ function disconnect() {
   document.getElementById('audioEl').srcObject = null;
   mqttClient=null; connected=false; connecting=false; currentDeviceId=null; pendingRequests.clear();
   setRpcStatus('—');
-  setEmgButtons(false);
   document.getElementById('btnConnect').textContent='Conectar';
   document.getElementById('btnConnect').className='btn btn-primary';
   document.getElementById('btnConnect').disabled=false;
