@@ -167,11 +167,29 @@ let connected = false, connecting = false, rpcId = 1;
 let currentDeviceId = null;
 const pendingRequests = new Map();
 
-function sendEmgCmd(cmd) {
-  if (!mqttClient) { log('MQTT no conectado — presiona Conectar primero', 'warn'); return; }
-  const devId = currentDeviceId || (() => { try { return parseUrl(document.getElementById('urlInput').value).deviceId; } catch { return null; } })();
-  if (!devId) { log('Device ID invalido', 'warn'); return; }
-  sendRpcNoWait(devId, cmd);
+async function sendEmgCmd(cmd) {
+  let devId = currentDeviceId;
+  if (!mqttClient) {
+    try {
+      const parsed = parseUrl(document.getElementById('urlInput').value);
+      devId = parsed.deviceId;
+      const broker = brokerWsUrl(parsed.host);
+      const username = document.getElementById('mqttUser').value.trim();
+      const password = document.getElementById('mqttPass').value;
+      log('Conectando MQTT para comando EMG...', 'info');
+      await new Promise((res, rej) => {
+        if (window.Paho) { res(); return; }
+        const s = document.createElement('script');
+        s.src = 'https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.1.0/paho-mqtt.min.js';
+        s.onload = res; s.onerror = () => rej(new Error('No se pudo cargar Paho'));
+        document.head.appendChild(s);
+      });
+      await connectMqtt(devId, broker, username, password);
+      currentDeviceId = devId;
+      log('MQTT listo', 'ok');
+    } catch(e) { log('Error MQTT: ' + e.message, 'warn'); return; }
+  }
+  sendRpcNoWait(devId || currentDeviceId, cmd);
 }
 
 /* ── Cloudflare TURN ── */
