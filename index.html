@@ -387,7 +387,7 @@ function connectMqtt(deviceId, broker, username, password) {
     const topics = getTopics(deviceId);
     log('Conectando MQTT: ' + broker.url, 'info');
     const opts = {
-      clientId: 'browser-' + Math.random().toString(36).slice(2,8),
+      clientId: (username || 'browser') + '@' + Math.random().toString(36).slice(2,8),
       reconnectPeriod: 0,
       connectTimeout: 12000,
     };
