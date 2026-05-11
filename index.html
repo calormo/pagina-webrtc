@@ -177,13 +177,7 @@ async function sendEmgCmd(cmd) {
       const username = document.getElementById('mqttUser').value.trim();
       const password = document.getElementById('mqttPass').value;
       log('Conectando MQTT para comando EMG...', 'info');
-      await new Promise((res, rej) => {
-        if (window.Paho) { res(); return; }
-        const s = document.createElement('script');
-        s.src = 'https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.1.0/paho-mqtt.min.js';
-        s.onload = res; s.onerror = () => rej(new Error('No se pudo cargar Paho'));
-        document.head.appendChild(s);
-      });
+      await loadMqttJs();
       await connectMqtt(devId, broker, username, password);
       currentDeviceId = devId;
       log('MQTT listo', 'ok');
@@ -377,46 +371,55 @@ function waitGatheringDone(peer, timeoutMs=5000) {    /* antes timeoutMs=20000 *
   });
 }
 
-function loadPaho(cb) {
-  if (window.Paho) return cb();
-  const s = document.createElement('script');
-  s.src = 'https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.1.0/paho-mqtt.min.js';
-  s.onload = cb;
-  s.onerror = () => log('No se pudo cargar Paho MQTT', 'warn');
-  document.head.appendChild(s);
+function loadMqttJs() {
+  return new Promise((res, rej) => {
+    if (window.mqtt) { res(); return; }
+    const s = document.createElement('script');
+    s.src = 'https://unpkg.com/mqtt@5/dist/mqtt.min.js';
+    s.onload = res;
+    s.onerror = () => rej(new Error('No se pudo cargar MQTT.js'));
+    document.head.appendChild(s);
+  });
 }
 
 function connectMqtt(deviceId, broker, username, password) {
   return new Promise((resolve, reject) => {
-    const clientId = 'browser-' + Math.random().toString(36).slice(2,8);
     const topics = getTopics(deviceId);
     log('Conectando MQTT: ' + broker.url, 'info');
-    const client = new Paho.Client(broker.host, broker.port, broker.path, clientId);
-    client.onConnectionLost = (r) => {
-      if (r.errorCode !== 0) {
-        log('MQTT desconectado: '+r.errorMessage,'warn');
-        setStatus('error','MQTT desconectado'); setRpcStatus('desconectado');
-        connecting=false; document.getElementById('btnConnect').disabled=false;
+    const opts = {
+      clientId: 'browser-' + Math.random().toString(36).slice(2,8),
+      reconnectPeriod: 0,
+      connectTimeout: 12000,
+    };
+    if (username) { opts.username = username; opts.password = password || ''; }
+    const client = mqtt.connect(broker.url, opts);
+    let resolved = false;
+    client.on('connect', () => {
+      log('MQTT conectado', 'ok');
+      client.subscribe(topics.result, (err) => {
+        if (err) { reject(new Error('No se pudo suscribir a ' + topics.result)); return; }
+        log('Suscrito a ' + topics.result, 'ok');
+        mqttClient = client; resolved = true; resolve(client);
+      });
+    });
+    client.on('message', (topic, message) => {
+      log(`MQTT RX [${topic}]`, 'info');
+      if (topic === topics.result) handleRpcResponse(message.toString());
+    });
+    client.on('error', (err) => {
+      if (!resolved) { client.end(true); reject(new Error(err.message || 'Error MQTT')); }
+      else { log('MQTT error: ' + (err.message || err), 'warn'); }
+    });
+    client.on('close', () => {
+      if (mqttClient) {
+        log('MQTT desconectado', 'warn');
+        setStatus('error', 'MQTT desconectado'); setRpcStatus('desconectado');
+        connecting = false; document.getElementById('btnConnect').disabled = false;
       }
-    };
-    client.onMessageArrived = (msg) => {
-      log(`MQTT RX [${msg.destinationName}]`,'info');
-      if (msg.destinationName===topics.result) handleRpcResponse(msg.payloadString);
-    };
-    const connOpts = {
-      useSSL: broker.ssl,
-      onSuccess: () => {
-        log('MQTT conectado', 'ok');
-        client.subscribe(topics.result, {
-          onSuccess: () => { log('Suscrito a '+topics.result,'ok'); mqttClient=client; resolve(client); },
-          onFailure: () => reject(new Error('No se pudo suscribir a '+topics.result))
-        });
-      },
-      onFailure: (err) => reject(new Error(err.errorMessage||'Error MQTT')),
-      timeout: 10
-    };
-    if (username) { connOpts.userName = username; connOpts.password = password || ''; }
-    client.connect(connOpts);
+    });
+    setTimeout(() => {
+      if (!resolved) { client.end(true); reject(new Error('Timeout de conexion MQTT')); }
+    }, 13000);
   });
 }
 
@@ -427,9 +430,7 @@ function sendRpc(deviceId, method, params=null) {
     pendingRequests.set(id, { resolve, reject, method });
     const payload = { jsonrpc:'2.0', id, method };
     if (params!==null) payload.params = params;
-    const msg = new Paho.Message(JSON.stringify(payload));
-    msg.destinationName = getTopics(deviceId).invoke;
-    mqttClient.send(msg);
+    mqttClient.publish(getTopics(deviceId).invoke, JSON.stringify(payload));
     setRpcStatus(method);
     log(`RPC -> ${method}`, 'info');
     setTimeout(() => {
@@ -445,9 +446,7 @@ function sendRpcNoWait(deviceId, method, params=null) {
   if (!mqttClient) throw new Error('MQTT no conectado');
   const payload = { jsonrpc:'2.0', id:rpcId++, method };
   if (params!==null) payload.params = params;
-  const msg = new Paho.Message(JSON.stringify(payload));
-  msg.destinationName = getTopics(deviceId).invoke;
-  mqttClient.send(msg);
+  mqttClient.publish(getTopics(deviceId).invoke, JSON.stringify(payload));
   setRpcStatus(method+' enviado');
   log(`RPC -> ${method} (no-wait)`, 'info');
 }
@@ -489,9 +488,9 @@ async function toggleConnect() {
     connecting=false; document.getElementById('btnConnect').disabled=false; return;
   }
 
-  loadPaho(async () => {
-    try {
-      setStatus('connecting','Obteniendo TURN credentials...');
+  try {
+    await loadMqttJs();
+    setStatus('connecting','Obteniendo TURN credentials...');
       const iceServers = await getIceServers();
       createPeerConnection(iceServers);
       await connectMqtt(deviceId, broker, username, password);
@@ -555,14 +554,13 @@ async function toggleConnect() {
       setStatus('error','Error de conexion'); setRpcStatus('error');
       connecting=false; document.getElementById('btnConnect').disabled=false;
       if (pc) { try{pc.close();}catch{} pc=null; }
-      if (mqttClient) { try{mqttClient.disconnect();}catch{} mqttClient=null; }
+      if (mqttClient) { try{mqttClient.end(true);}catch{} mqttClient=null; }
       pendingRequests.clear(); stopVisualizer(); stopLocalStream();
     }
-  });
-}
+  }
 
 function disconnect() {
-  if (mqttClient) { try{mqttClient.disconnect();}catch{} }
+  if (mqttClient) { try{mqttClient.end(true);}catch{} }
   if (pc) { try{pc.close();}catch{} pc=null; }
   stopVisualizer(); stopLocalStream();
   document.getElementById('audioEl').srcObject = null;
