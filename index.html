@@ -236,7 +236,7 @@ function brokerWsUrl(host) {
   if (host.includes('hivemq')) return { url: `wss://${host}:8884/mqtt`, host, port: 8884, path: '/mqtt', ssl: true };
   return { url: `ws://${host}:8083/mqtt`, host, port: 8083, path: '/mqtt', ssl: false };
 }
-function getTopics(id) { return { invoke: `/${id}/invoke`, result: `/${id}/result` }; }
+function getTopics(id) { return { invoke: id, result: `/${id}/result` }; }
 
 function log(msg, type='') {
   const el = document.getElementById('log');
